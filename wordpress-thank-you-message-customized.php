@@ -123,7 +123,7 @@ add_shortcode($shortcode_slug, function () {
 
     // if the donor id doesn't exist (maybe user is playing around with the id in the url), show the same generic message.
     if (!$query->have_posts()) {
-        return '<p>Thank you for your support! id=' . $donorid . ' <a href="/donate">Donate here</a>.</p>';
+        return '<p>Thank you for your support! id=' . $token . ' <a href="/donate">Donate here</a>.</p>';
     }
 
     // we found a valid id. get the CPT for that id and grab information to use in the message.
