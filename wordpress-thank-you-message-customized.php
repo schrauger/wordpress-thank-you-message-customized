@@ -23,7 +23,7 @@ add_action('init', function () use ($cpt_slug) {
         'public' => false, // this cpt is used kind of like a database table, so don't show it publicly
         'show_ui' => true,
         'menu_icon' => 'dashicons-heart',
-        'supports' => ['editor','revisions'],
+        'supports' => ['title','editor','revisions'],
     ]);
 });
 
@@ -53,52 +53,22 @@ function render_donor_meta_box($post) {
 
 // save Editor donor information
 add_action("save_post_${cpt_slug}", function ($post_id) {
-    if (!isset($_POST['donor_meta_nonce']) ||
-        !wp_verify_nonce($_POST['donor_meta_nonce'], 'save_donor_meta')) {
-        return;
-    }
+    // avoid autosave / revisions
+    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
 
-    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
-        return;
-    }
-
-    if (isset($_POST['donor_name'])) {
-        update_post_meta(
-            $post_id,
-            '_donor_name',
-            sanitize_text_field($_POST['donor_name'])
-        );
-    }
-
-    // Generate token once
     if (!get_post_meta($post_id, '_donor_token', true)) {
-        update_post_meta(
-            $post_id,
-            '_donor_token',
-            bin2hex(random_bytes(16)) // unique id to see custom message. not auto-incremented to prevent guessing and seeing other data.
-        );
-    }
-
-    // Auto-fill post title from donor name
-    $name = sanitize_text_field($_POST['donor_name'] ?? '');
-    if ($name) {
-        // remove filters to prevent infinite loop
-        remove_action("save_post_${cpt_slug}", __FUNCTION__);
-        wp_update_post([
-            'ID'    => $post_id,
-            'post_title' => $name,
-        ]);
+        update_post_meta($post_id, '_donor_token', bin2hex(random_bytes(16)));
     }
 });
 
 // Editor side meta box, to show the generated url to the Editor to copy and paste or use elsewhere
 add_action('add_meta_boxes', function () {
-    $page_path = get_option('donor_thank_you_page_path', '/thank-you'); // page path to display on side. '/thank-you' by default (change in CPT->Donor Settings)
 
     add_meta_box(
         'donor_link_meta',
         'Donor Link',
         function ($post) {
+            $page_path = get_option('donor_thank_you_page_path', '/thank-you'); // page path to display on side. '/thank-you' by default (change in CPT->Donor Settings)
             $token = get_post_meta($post->ID, '_donor_token', true);
             if ($token) {
                 $url = site_url($page_path . '?donorid=' . $token);
@@ -113,7 +83,7 @@ add_action('add_meta_boxes', function () {
 // admin preference to specify page path
 add_action('admin_menu', function () use ($cpt_slug) {
     add_submenu_page(
-        $cpt_slug,                // parent slug -> make it appear under CPT menu
+        'donor_message',                // parent slug -> make it appear under CPT menu
         'Donor Settings',         // page title
         'Settings',               // menu title
         'manage_options',         // capability
@@ -182,10 +152,10 @@ add_shortcode($shortcode_slug, function () {
 
     // we found a valid id. get the CPT for that id and grab information to use in the message.
     $query->the_post();
-    $name    = get_post_meta(get_the_ID(), '_donor_name', true);
-    $message = get_post_meta(get_the_ID(), '_donor_message', true);
+    $name    = get_the_title();
+    $message = get_the_content();
     wp_reset_postdata();
-
+    
     ob_start();
     ?>
     <div class="donor-thank-you">
@@ -207,8 +177,8 @@ add_action('init', function () use ($shortcode_slug) {
         'title'       => __('Donor Thank You', 'donor-thank-you'),
         'category'    => 'widgets',
         'icon'        => 'heart',
-        'render_callback' => function($attrs) use ($shortcode_slug) {
-            return do_shortcode("[$shortcode_slug]");
+        'render_callback' => function($attrs) {
+            return do_shortcode("[donor_message]");
         },
         'attributes'  => [],
     ]);
