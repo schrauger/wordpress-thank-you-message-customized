@@ -81,14 +81,20 @@ function add_admin_menu() {
 }
 
 function donor_settings_page() {
-    // check if form submitted
     if (isset($_POST['donor_settings_nonce']) && \wp_verify_nonce($_POST['donor_settings_nonce'], 'save_donor_settings')) {
-        $page_path = \sanitize_text_field($_POST['donor_page_path']);
-        update_option('donor_thank_you_page_path', $page_path);
+        update_option('donor_thank_you_page_path', sanitize_text_field($_POST['donor_page_path']));
+        update_option('donor_generic_title', sanitize_text_field($_POST['donor_generic_title']));
+        update_option('donor_generic_message', sanitize_textarea_field($_POST['donor_generic_message']));
+        update_option('donor_pre_name_text', sanitize_text_field($_POST['donor_pre_name_text']));
+        update_option('donor_post_name_text', sanitize_text_field($_POST['donor_post_name_text']));
         echo '<div class="updated"><p>Settings saved.</p></div>';
     }
 
-    $current_path = \get_option('donor_thank_you_page_path', '/thank-you');
+    $current_path      = \get_option('donor_thank_you_page_path', '/thank-you');
+    $generic_title     = \get_option('donor_generic_title', 'Thank you!');
+    $generic_message   = \get_option('donor_generic_message', 'Thank you for your support! <a href="/donate">Donate here</a>.');
+    $pre_name_text     = \get_option('donor_pre_name_text', 'Thank you');
+    $post_name_text    = \get_option('donor_post_name_text', 'for your support!');
     ?>
     <div class="wrap">
         <h1>Donor Settings</h1>
@@ -98,12 +104,40 @@ function donor_settings_page() {
                 <tr>
                     <th scope="row"><label for="donor_page_path">Thank You Page Path</label></th>
                     <td>
-                        <input type="text" name="donor_page_path" id="donor_page_path" value="<?php echo \esc_attr($current_path); ?>" class="regular-text">
+                        <input type="text" name="donor_page_path" id="donor_page_path" value="<?php echo esc_attr($current_path); ?>" class="regular-text">
                         <p class="description">Enter the relative path of the page used to display thank-you messages (e.g., /thank-you)</p>
                     </td>
                 </tr>
+                <tr>
+                    <th scope="row"><label for="donor_generic_title">Generic Thank You Title</label></th>
+                    <td>
+                        <input type="text" name="donor_generic_title" id="donor_generic_title" value="<?php echo esc_attr($generic_title); ?>" class="regular-text">
+                        <p class="description">Title shown when donor ID is missing or invalid.</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="donor_generic_message">Generic Thank You Message</label></th>
+                    <td>
+                        <textarea name="donor_generic_message" id="donor_generic_message" rows="5" class="large-text"><?php echo esc_textarea($generic_message); ?></textarea>
+                        <p class="description">Message shown when donor ID is missing or invalid. HTML is allowed.</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="donor_pre_name_text">Pre-Name Text</label></th>
+                    <td>
+                        <input type="text" name="donor_pre_name_text" id="donor_pre_name_text" value="<?php echo esc_attr($pre_name_text); ?>" class="regular-text">
+                        <p class="description">Text displayed before the donor name in personalized messages.</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="donor_post_name_text">Post-Name Text</label></th>
+                    <td>
+                        <input type="text" name="donor_post_name_text" id="donor_post_name_text" value="<?php echo esc_attr($post_name_text); ?>" class="regular-text">
+                        <p class="description">Text displayed after the donor name in personalized messages.</p>
+                    </td>
+                </tr>
             </table>
-            <?php \submit_button(); ?>
+            <?php submit_button(); ?>
         </form>
     </div>
     <?php
@@ -111,17 +145,20 @@ function donor_settings_page() {
 
 
 
+
 // frontend shortcode rendering
-add_shortcode(SHORTCODE_SLUG, __NAMESPACE__ . '\\render_donor_shortcode');
 function render_donor_shortcode() {
-    // if user doesn't pass in a donor id, then show a generic thank you and a link to donate.
+    $generic_title   = \get_option('donor_generic_title', 'Thank you!');
+    $generic_message = \get_option('donor_generic_message', 'Thank you for your support! <a href="/donate">Donate here</a>.');
+    $pre_name_text   = \get_option('donor_pre_name_text', 'Thank you');
+    $post_name_text  = \get_option('donor_post_name_text', 'for your support!');
+
     if (!isset($_GET['donorid'])) {
-        return '<p>Thank you for your support! <a href="/donate">Donate here</a>.</p>';
+        return '<h2>' . esc_html($generic_title) . '</h2><p>' . $generic_message . '</p>';
     }
 
-    $token = \sanitize_text_field($_GET['donorid']);
+    $token = sanitize_text_field($_GET['donorid']);
 
-    // check for this donor id.
     $query = new \WP_Query([
         'post_type'  => CPT_SLUG,
         'meta_query' => [
@@ -133,29 +170,28 @@ function render_donor_shortcode() {
         'posts_per_page' => 1,
     ]);
 
-    // if the donor id doesn't exist (maybe user is playing around with the id in the url), show the same generic message.
     if (!$query->have_posts()) {
-        return '<p>Thank you for your support! <a href="/donate">Donate here</a>.</p>';
+        return '<h2>' . esc_html($generic_title) . '</h2><p>' . $generic_message . '</p>';
     }
 
-    // we found a valid id. get the CPT for that id and grab information to use in the message.
     $query->the_post();
     $name    = \get_the_title();
     $message = \get_the_content();
     \wp_reset_postdata();
-    
+
     ob_start();
     ?>
     <div class="donor-thank-you">
-        <h2>Thank you, <?php echo \esc_html($name); ?>!</h2>
+        <h2><?php echo esc_html($pre_name_text . ' ' . $name . ' ' . $post_name_text); ?></h2>
         <div class="donor-message">
-            <?php echo \apply_filters('the_content', $message); // render blocks and shortcodes ?>
-        </div>    
+            <?php echo \apply_filters('the_content', $message); ?>
+        </div>
     </div>
     <?php
 
     return \ob_get_clean();
 }
+
 
 // add a block so it's easier to add to a page than a shortcode
 add_action('init', __NAMESPACE__ . '\\register_donor_block');
