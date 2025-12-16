@@ -71,7 +71,7 @@ function render_donor_meta_box($post) {
 add_action('admin_menu', __NAMESPACE__ . '\\add_admin_menu');
 function add_admin_menu() {
     add_submenu_page(
-        CPT_SLUG,                 // parent slug -> make it appear under CPT menu
+        'edit.php?post_type=' . CPT_SLUG, // parent slug -> make it appear under CPT menu
         'Donor Settings',         // page title
         'Settings',               // menu title
         'manage_options',         // capability
