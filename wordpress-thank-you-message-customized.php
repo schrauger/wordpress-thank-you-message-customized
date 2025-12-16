@@ -14,7 +14,7 @@ $cpt_name = "Donor Message";
 $shortcode_slug = "donor_message";
 
 // create the CPT
-add_action('init', function () {
+add_action('init', function () use ($cpt_slug) {
     register_post_type($cpt_slug, [
         'labels' => [
             'name' => 'Donor Messages',
@@ -29,7 +29,7 @@ add_action('init', function () {
 
 
 // add Editor fields
-add_action('add_meta_boxes', function () {
+add_action('add_meta_boxes', function () use ($cpt_slug) {
     add_meta_box(
         "${cpt_slug}_meta",
         'Donor Information',
@@ -106,7 +106,7 @@ add_action('add_meta_boxes', function () {
                 echo '<code>' . esc_html($url) . '</code>';
             }
         },
-        'donor_thank_you',
+        $cpt_slug,
         'side'
     );
 });
