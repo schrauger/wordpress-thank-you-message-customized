@@ -11,7 +11,7 @@ Text Domain: donor-thank-you
 
 namespace Schrauger\DonorThankYou;
 
-defined('ABSPATH') || exit;
+\defined('ABSPATH') || exit;
 
 // -------------------------
 // Plugin constants
@@ -39,10 +39,10 @@ function register_cpt() {
 add_action('save_post_' . CPT_SLUG, __NAMESPACE__ . '\\generate_donor_token');
 function generate_donor_token($post_id) {
     // avoid autosave / revisions
-    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
+    if (\defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
 
-    if (!get_post_meta($post_id, '_donor_token', true)) {
-        update_post_meta($post_id, '_donor_token', bin2hex(random_bytes(16)));
+    if (!\get_post_meta($post_id, '_donor_token', true)) {
+        \update_post_meta($post_id, '_donor_token', \bin2hex(\random_bytes(16)));
     }
 }
 
@@ -59,11 +59,11 @@ function add_donor_meta_box() {
 }
 
 function render_donor_meta_box($post) {
-    $page_path = get_option('donor_thank_you_page_path', '/thank-you');
-    $token = get_post_meta($post->ID, '_donor_token', true);
+    $page_path = \get_option('donor_thank_you_page_path', '/thank-you');
+    $token = \get_post_meta($post->ID, '_donor_token', true);
     if ($token) {
         $url = site_url($page_path . '?donorid=' . $token);
-        echo '<input type="text" readonly style="width:100%" value="' . esc_attr($url) . '">';
+        echo '<input type="text" readonly style="width:100%" value="' . \esc_attr($url) . '">';
     }
 }
 
@@ -82,28 +82,28 @@ function add_admin_menu() {
 
 function donor_settings_page() {
     // check if form submitted
-    if (isset($_POST['donor_settings_nonce']) && wp_verify_nonce($_POST['donor_settings_nonce'], 'save_donor_settings')) {
-        $page_path = sanitize_text_field($_POST['donor_page_path']);
+    if (isset($_POST['donor_settings_nonce']) && \wp_verify_nonce($_POST['donor_settings_nonce'], 'save_donor_settings')) {
+        $page_path = \sanitize_text_field($_POST['donor_page_path']);
         update_option('donor_thank_you_page_path', $page_path);
         echo '<div class="updated"><p>Settings saved.</p></div>';
     }
 
-    $current_path = get_option('donor_thank_you_page_path', '/thank-you');
+    $current_path = \get_option('donor_thank_you_page_path', '/thank-you');
     ?>
     <div class="wrap">
         <h1>Donor Settings</h1>
         <form method="post">
-            <?php wp_nonce_field('save_donor_settings', 'donor_settings_nonce'); ?>
+            <?php \wp_nonce_field('save_donor_settings', 'donor_settings_nonce'); ?>
             <table class="form-table">
                 <tr>
                     <th scope="row"><label for="donor_page_path">Thank You Page Path</label></th>
                     <td>
-                        <input type="text" name="donor_page_path" id="donor_page_path" value="<?php echo esc_attr($current_path); ?>" class="regular-text">
+                        <input type="text" name="donor_page_path" id="donor_page_path" value="<?php echo \esc_attr($current_path); ?>" class="regular-text">
                         <p class="description">Enter the relative path of the page used to display thank-you messages (e.g., /thank-you)</p>
                     </td>
                 </tr>
             </table>
-            <?php submit_button(); ?>
+            <?php \submit_button(); ?>
         </form>
     </div>
     <?php
@@ -119,10 +119,10 @@ function render_donor_shortcode() {
         return '<p>Thank you for your support! <a href="/donate">Donate here</a>.</p>';
     }
 
-    $token = sanitize_text_field($_GET['donorid']);
+    $token = \sanitize_text_field($_GET['donorid']);
 
     // check for this donor id.
-    $query = new WP_Query([
+    $query = new \WP_Query([
         'post_type'  => CPT_SLUG,
         'meta_query' => [
             [
@@ -140,21 +140,21 @@ function render_donor_shortcode() {
 
     // we found a valid id. get the CPT for that id and grab information to use in the message.
     $query->the_post();
-    $name    = get_the_title();
-    $message = get_the_content();
+    $name    = \get_the_title();
+    $message = \get_the_content();
     \wp_reset_postdata();
     
     ob_start();
     ?>
     <div class="donor-thank-you">
-        <h2>Thank you, <?php echo esc_html($name); ?>!</h2>
+        <h2>Thank you, <?php echo \esc_html($name); ?>!</h2>
         <div class="donor-message">
-            <?php echo apply_filters('the_content', $message); // render blocks and shortcodes ?>
+            <?php echo \apply_filters('the_content', $message); // render blocks and shortcodes ?>
         </div>    
     </div>
     <?php
 
-    return ob_get_clean();
+    return \ob_get_clean();
 }
 
 // add a block so it's easier to add to a page than a shortcode
