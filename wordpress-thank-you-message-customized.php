@@ -111,7 +111,7 @@ add_shortcode($shortcode_slug, function () {
 
     // check for this donor id.
     $query = new WP_Query([
-        'post_type'  => $cpt_slug,
+        'post_type'  => 'donor_message',
         'meta_query' => [
             [
                 'key'   => '_donor_token',
