@@ -166,6 +166,7 @@ function register_donor_block() {
         'title'           => __('Donor Thank You', 'donor-thank-you'),
         'category'        => 'widgets',
         'icon'            => 'heart',
+        'editor_script'   => 'donor-thank-you-block-js',
         'render_callback' => __NAMESPACE__ . '\\render_donor_block',
         'attributes'      => [],
     ]);
@@ -174,3 +175,12 @@ function render_donor_block($attributes) {
     return do_shortcode('[' . SHORTCODE_SLUG . ']');
 }
 
+function enqueue_donor_block_assets() {
+    wp_register_script(
+        'donor-thank-you-block-js',
+        plugins_url('block.js', __FILE__),
+        ['wp-blocks', 'wp-element', 'wp-editor'],
+        filemtime(plugin_dir_path(__FILE__) . 'block.js')
+    );
+}
+add_action('enqueue_block_editor_assets', __NAMESPACE__ . '\\enqueue_donor_block_assets');
