@@ -23,7 +23,7 @@ add_action('init', function () use ($cpt_slug) {
         'public' => false, // this cpt is used kind of like a database table, so don't show it publicly
         'show_ui' => true,
         'menu_icon' => 'dashicons-heart',
-        'supports' => ['title'],
+        'supports' => ['revisions'],
     ]);
 });
 
@@ -92,17 +92,30 @@ add_action("save_post_${cpt_slug}", function ($post_id) {
             bin2hex(random_bytes(16)) // unique id to see custom message. not auto-incremented to prevent guessing and seeing other data.
         );
     }
+
+    // Auto-fill post title from donor name
+    $name = sanitize_text_field($_POST['donor_name'] ?? '');
+    if ($name) {
+        // remove filters to prevent infinite loop
+        remove_action("save_post_${cpt_slug}", __FUNCTION__);
+        wp_update_post([
+            'ID'    => $post_id,
+            'post_title' => $name,
+        ]);
+    }
 });
 
 // Editor side meta box, to show the generated url to the Editor to copy and paste or use elsewhere
 add_action('add_meta_boxes', function () {
+    $page_path = get_option('donor_thank_you_page_path', '/thank-you'); // page path to display on side. '/thank-you' by default (change in CPT->Donor Settings)
+
     add_meta_box(
         'donor_link_meta',
         'Donor Link',
         function ($post) {
             $token = get_post_meta($post->ID, '_donor_token', true);
             if ($token) {
-                $url = site_url('/thank-you/?donorid=' . $token);
+                $url = site_url($page_path . '?donorid=' . $token);
                 echo '<code>' . esc_html($url) . '</code>';
             }
         },
@@ -110,6 +123,49 @@ add_action('add_meta_boxes', function () {
         'side'
     );
 });
+
+// admin preference to specify page path
+add_action('admin_menu', function () use ($cpt_slug) {
+    add_submenu_page(
+        $cpt_slug,                // parent slug -> make it appear under CPT menu
+        'Donor Settings',         // page title
+        'Settings',               // menu title
+        'manage_options',         // capability
+        'donor_settings',         // menu slug
+        'donor_settings_page'     // callback function
+    );
+});
+
+function donor_settings_page() {
+    // check if form submitted
+    if (isset($_POST['donor_settings_nonce']) && wp_verify_nonce($_POST['donor_settings_nonce'], 'save_donor_settings')) {
+        $page_path = sanitize_text_field($_POST['donor_page_path']);
+        update_option('donor_thank_you_page_path', $page_path);
+        echo '<div class="updated"><p>Settings saved.</p></div>';
+    }
+
+    $current_path = get_option('donor_thank_you_page_path', '/thank-you');
+    ?>
+    <div class="wrap">
+        <h1>Donor Settings</h1>
+        <form method="post">
+            <?php wp_nonce_field('save_donor_settings', 'donor_settings_nonce'); ?>
+            <table class="form-table">
+                <tr>
+                    <th scope="row"><label for="donor_page_path">Thank You Page Path</label></th>
+                    <td>
+                        <input type="text" name="donor_page_path" id="donor_page_path" value="<?php echo esc_attr($current_path); ?>" class="regular-text">
+                        <p class="description">Enter the relative path of the page used to display thank-you messages (e.g., /thank-you)</p>
+                    </td>
+                </tr>
+            </table>
+            <?php submit_button(); ?>
+        </form>
+    </div>
+    <?php
+}
+
+
 
 // frontend shortcode rendering
 add_shortcode($shortcode_slug, function () {
