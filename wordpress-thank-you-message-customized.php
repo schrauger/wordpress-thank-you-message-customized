@@ -23,7 +23,7 @@ add_action('init', function () use ($cpt_slug) {
         'public' => false, // this cpt is used kind of like a database table, so don't show it publicly
         'show_ui' => true,
         'menu_icon' => 'dashicons-heart',
-        'supports' => ['revisions'],
+        'supports' => ['editor','revisions'],
     ]);
 });
 
@@ -41,18 +41,12 @@ add_action('add_meta_boxes', function () use ($cpt_slug) {
 // render the Editor fields
 function render_donor_meta_box($post) {
     $name    = get_post_meta($post->ID, '_donor_name', true);
-    $message = get_post_meta($post->ID, '_donor_message', true);
 
     wp_nonce_field('save_donor_meta', 'donor_meta_nonce');
     ?>
     <p>
         <label>Name</label><br>
         <input type="text" name="donor_name" value="<?php echo esc_attr($name); ?>" style="width:100%">
-    </p>
-
-    <p>
-        <label>Message</label><br>
-        <textarea name="donor_message" rows="5" style="width:100%"><?php echo esc_textarea($message); ?></textarea>
     </p>
     <?php
 }
@@ -73,14 +67,6 @@ add_action("save_post_${cpt_slug}", function ($post_id) {
             $post_id,
             '_donor_name',
             sanitize_text_field($_POST['donor_name'])
-        );
-    }
-
-    if (isset($_POST['donor_message'])) {
-        update_post_meta(
-            $post_id,
-            '_donor_message',
-            sanitize_textarea_field($_POST['donor_message'])
         );
     }
 
@@ -204,10 +190,27 @@ add_shortcode($shortcode_slug, function () {
     ?>
     <div class="donor-thank-you">
         <h2>Thank you, <?php echo esc_html($name); ?>!</h2>
-        <p><?php echo nl2br(esc_html($message)); ?></p>
+        <div class="donor-message">
+            <?php echo apply_filters('the_content', $message); // render blocks and shortcodes ?>
+        </div>    
     </div>
     <?php
 
     return ob_get_clean();
+});
+
+// add a block so it's easier to add to a page than a shortcode
+add_action('init', function () use ($shortcode_slug) {
+    if (!function_exists('register_block_type')) return;
+
+    register_block_type('donor-thank-you/message', [
+        'title'       => __('Donor Thank You', 'donor-thank-you'),
+        'category'    => 'widgets',
+        'icon'        => 'heart',
+        'render_callback' => function($attrs) use ($shortcode_slug) {
+            return do_shortcode("[$shortcode_slug]");
+        },
+        'attributes'  => [],
+    ]);
 });
 
