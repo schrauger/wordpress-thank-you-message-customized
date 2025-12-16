@@ -1,4 +1,13 @@
 <?php
+/*
+Plugin Name: Donor Thank You Message
+Plugin URI:  https://github.com/schrauger/wordpress-thank-you-message-customized
+Description: Adds personalized thank-you pages for donors via CPT and shortcodes.
+Version:     1.0
+Author:      Stephen Schrauger
+Author URI:  https://schrauger.com
+Text Domain: donor-thank-you
+*/
 
 $cpt_slug = "donor_message";
 $cpt_name = "Donor Message";
