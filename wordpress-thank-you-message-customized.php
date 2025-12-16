@@ -27,30 +27,6 @@ add_action('init', function () use ($cpt_slug) {
     ]);
 });
 
-
-// add Editor fields
-add_action('add_meta_boxes', function () use ($cpt_slug) {
-    add_meta_box(
-        "${cpt_slug}_meta",
-        'Donor Information',
-        'render_donor_meta_box',
-        $cpt_slug
-    );
-});
-
-// render the Editor fields
-function render_donor_meta_box($post) {
-    $name    = get_post_meta($post->ID, '_donor_name', true);
-
-    wp_nonce_field('save_donor_meta', 'donor_meta_nonce');
-    ?>
-    <p>
-        <label>Name</label><br>
-        <input type="text" name="donor_name" value="<?php echo esc_attr($name); ?>" style="width:100%">
-    </p>
-    <?php
-}
-
 // save Editor donor information
 add_action("save_post_${cpt_slug}", function ($post_id) {
     // avoid autosave / revisions
