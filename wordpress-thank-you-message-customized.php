@@ -9,26 +9,33 @@ Author URI:  https://schrauger.com
 Text Domain: donor-thank-you
 */
 
-$cpt_slug = "donor_message";
-$cpt_name = "Donor Message";
-$shortcode_slug = "donor_message";
+namespace Schrauger\DonorThankYou;
+
+defined('ABSPATH') || exit;
+
+// -------------------------
+// Plugin constants
+// -------------------------
+const CPT_SLUG        = 'donor_message';
+const SHORTCODE_SLUG  = 'donor_message';
+const BLOCK_NAMESPACE = 'donor-thank-you';
 
 // create the CPT
-add_action('init', function () use ($cpt_slug) {
-    register_post_type($cpt_slug, [
+add_action('init', function() {
+    register_post_type(CPT_SLUG, [
         'labels' => [
-            'name' => 'Donor Messages',
-            'singular_name' => 'Donor Message',
+            'name'          => __('Donor Messages', 'donor-thank-you'),
+            'singular_name' => __('Donor Message', 'donor-thank-you'),
         ],
-        'public' => false, // this cpt is used kind of like a database table, so don't show it publicly
+        'public'  => false, // this cpt is used kind of like a database table, so don't show it publicly
         'show_ui' => true,
         'menu_icon' => 'dashicons-heart',
-        'supports' => ['title','editor','revisions'],
+        'supports' => ['title', 'editor', 'revisions'],
     ]);
-});
+}, 0); // low priority to ensure available before shortcode/block
 
 // save Editor donor information
-add_action("save_post_${cpt_slug}", function ($post_id) {
+add_action('save_post_' . CPT_SLUG, function($post_id) {
     // avoid autosave / revisions
     if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
 
@@ -42,7 +49,7 @@ add_action('add_meta_boxes', function () {
 
     add_meta_box(
         'donor_link_meta',
-        'Donor Link',
+        __('Donor Link', 'donor-thank-you'),
         function ($post) {
             $page_path = get_option('donor_thank_you_page_path', '/thank-you'); // page path to display on side. '/thank-you' by default (change in CPT->Donor Settings)
             $token = get_post_meta($post->ID, '_donor_token', true);
@@ -51,7 +58,7 @@ add_action('add_meta_boxes', function () {
                 echo '<code>' . esc_html($url) . '</code>';
             }
         },
-        $cpt_slug,
+        CPT_SLUG,
         'side'
     );
 });
@@ -59,12 +66,12 @@ add_action('add_meta_boxes', function () {
 // admin preference to specify page path
 add_action('admin_menu', function () use ($cpt_slug) {
     add_submenu_page(
-        'donor_message',                // parent slug -> make it appear under CPT menu
+        CPT_SLUG,                 // parent slug -> make it appear under CPT menu
         'Donor Settings',         // page title
         'Settings',               // menu title
         'manage_options',         // capability
         'donor_settings',         // menu slug
-        'donor_settings_page'     // callback function
+        __NAMESPACE__ . '\\donor_settings_page'     // callback function
     );
 });
 
@@ -100,18 +107,18 @@ function donor_settings_page() {
 
 
 // frontend shortcode rendering
-add_shortcode($shortcode_slug, function () {
+add_shortcode(SHORTCODE_SLUG, function () {
 
     // if user doesn't pass in a donor id, then show a generic thank you and a link to donate.
     if (!isset($_GET['donorid'])) {
-        return '<p>Thank you for your support! id=null <a href="/donate">Donate here</a>.</p>';
+        return '<p>Thank you for your support! <a href="/donate">Donate here</a>.</p>';
     }
 
     $token = sanitize_text_field($_GET['donorid']);
 
     // check for this donor id.
     $query = new WP_Query([
-        'post_type'  => 'donor_message',
+        'post_type'  => CPT_SLUG,
         'meta_query' => [
             [
                 'key'   => '_donor_token',
@@ -123,14 +130,14 @@ add_shortcode($shortcode_slug, function () {
 
     // if the donor id doesn't exist (maybe user is playing around with the id in the url), show the same generic message.
     if (!$query->have_posts()) {
-        return '<p>Thank you for your support! id=' . $token . ' <a href="/donate">Donate here</a>.</p>';
+        return '<p>Thank you for your support! <a href="/donate">Donate here</a>.</p>';
     }
 
     // we found a valid id. get the CPT for that id and grab information to use in the message.
     $query->the_post();
     $name    = get_the_title();
     $message = get_the_content();
-    wp_reset_postdata();
+    \wp_reset_postdata();
     
     ob_start();
     ?>
@@ -146,17 +153,17 @@ add_shortcode($shortcode_slug, function () {
 });
 
 // add a block so it's easier to add to a page than a shortcode
-add_action('init', function () use ($shortcode_slug) {
+add_action('init', function() {
     if (!function_exists('register_block_type')) return;
 
-    register_block_type('donor-thank-you/message', [
-        'title'       => __('Donor Thank You', 'donor-thank-you'),
-        'category'    => 'widgets',
-        'icon'        => 'heart',
-        'render_callback' => function($attrs) {
-            return do_shortcode("[donor_message]");
+    register_block_type(BLOCK_NAMESPACE . '/message', [
+        'title'           => __('Donor Thank You', 'donor-thank-you'),
+        'category'        => 'widgets',
+        'icon'            => 'heart',
+        'render_callback' => function() {
+            return do_shortcode('[' . SHORTCODE_SLUG . ']');
         },
-        'attributes'  => [],
+        'attributes'      => [],
     ]);
 });
 
