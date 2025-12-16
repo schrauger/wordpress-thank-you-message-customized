@@ -147,6 +147,7 @@ function donor_settings_page() {
 
 
 // frontend shortcode rendering
+add_shortcode(SHORTCODE_SLUG, __NAMESPACE__ . '\\render_donor_shortcode');
 function render_donor_shortcode() {
     $generic_title   = \get_option('donor_generic_title', 'Thank you!');
     $generic_message = \get_option('donor_generic_message', 'Thank you for your support! <a href="/donate">Donate here</a>.');
