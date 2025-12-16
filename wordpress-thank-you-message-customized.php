@@ -21,7 +21,8 @@ const SHORTCODE_SLUG  = 'donor_message';
 const BLOCK_NAMESPACE = 'donor-thank-you';
 
 // create the CPT
-add_action('init', function() {
+add_action('init', __NAMESPACE__ . '\\register_cpt', 0);
+function register_cpt() {
     register_post_type(CPT_SLUG, [
         'labels' => [
             'name'          => __('Donor Messages', 'donor-thank-you'),
@@ -32,39 +33,43 @@ add_action('init', function() {
         'menu_icon' => 'dashicons-heart',
         'supports' => ['title', 'editor', 'revisions'],
     ]);
-}, 0); // low priority to ensure available before shortcode/block
+}
 
 // save Editor donor information
-add_action('save_post_' . CPT_SLUG, function($post_id) {
+add_action('save_post_' . CPT_SLUG, __NAMESPACE__ . '\\generate_donor_token');
+function generate_donor_token($post_id) {
     // avoid autosave / revisions
     if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
 
     if (!get_post_meta($post_id, '_donor_token', true)) {
         update_post_meta($post_id, '_donor_token', bin2hex(random_bytes(16)));
     }
-});
+}
 
 // Editor side meta box, to show the generated url to the Editor to copy and paste or use elsewhere
-add_action('add_meta_boxes', function () {
-
+add_action('add_meta_boxes', __NAMESPACE__ . '\\add_donor_meta_box');
+function add_donor_meta_box() {
     add_meta_box(
         'donor_link_meta',
         __('Donor Link', 'donor-thank-you'),
-        function ($post) {
-            $page_path = get_option('donor_thank_you_page_path', '/thank-you'); // page path to display on side. '/thank-you' by default (change in CPT->Donor Settings)
-            $token = get_post_meta($post->ID, '_donor_token', true);
-            if ($token) {
-                $url = site_url($page_path . '?donorid=' . $token);
-                echo '<code>' . esc_html($url) . '</code>';
-            }
-        },
+        __NAMESPACE__ . '\\render_donor_meta_box',
         CPT_SLUG,
         'side'
     );
-});
+}
+
+function render_donor_meta_box($post) {
+    $page_path = get_option('donor_thank_you_page_path', '/thank-you');
+    $token = get_post_meta($post->ID, '_donor_token', true);
+    if ($token) {
+        $url = site_url($page_path . '?donorid=' . $token);
+        echo '<input type="text" readonly style="width:100%" value="' . esc_attr($url) . '">';
+    }
+}
 
 // admin preference to specify page path
-add_action('admin_menu', function () ) {
+add_action('admin_menu', __NAMESPACE__ . '\\add_admin_menu');
+function add_admin_menu() {
     add_submenu_page(
         CPT_SLUG,                 // parent slug -> make it appear under CPT menu
         'Donor Settings',         // page title
@@ -73,7 +78,7 @@ add_action('admin_menu', function () ) {
         'donor_settings',         // menu slug
         __NAMESPACE__ . '\\donor_settings_page'     // callback function
     );
-});
+}
 
 function donor_settings_page() {
     // check if form submitted
@@ -107,8 +112,8 @@ function donor_settings_page() {
 
 
 // frontend shortcode rendering
-add_shortcode(SHORTCODE_SLUG, function () {
-
+add_shortcode(SHORTCODE_SLUG, __NAMESPACE__ . '\\render_donor_shortcode');
+function render_donor_shortcode() {
     // if user doesn't pass in a donor id, then show a generic thank you and a link to donate.
     if (!isset($_GET['donorid'])) {
         return '<p>Thank you for your support! <a href="/donate">Donate here</a>.</p>';
@@ -150,20 +155,22 @@ add_shortcode(SHORTCODE_SLUG, function () {
     <?php
 
     return ob_get_clean();
-});
+}
 
 // add a block so it's easier to add to a page than a shortcode
-add_action('init', function() {
+add_action('init', __NAMESPACE__ . '\\register_donor_block');
+function register_donor_block() {
     if (!function_exists('register_block_type')) return;
 
     register_block_type(BLOCK_NAMESPACE . '/message', [
         'title'           => __('Donor Thank You', 'donor-thank-you'),
         'category'        => 'widgets',
         'icon'            => 'heart',
-        'render_callback' => function() {
-            return do_shortcode('[' . SHORTCODE_SLUG . ']');
-        },
+        'render_callback' => __NAMESPACE__ . '\\render_donor_block',
         'attributes'      => [],
     ]);
-});
+}
+function render_donor_block($attributes) {
+    return do_shortcode('[' . SHORTCODE_SLUG . ']');
+}
 
