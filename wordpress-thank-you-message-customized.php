@@ -3,7 +3,7 @@
 Plugin Name: Donor Thank You Message
 Plugin URI:  https://github.com/schrauger/wordpress-thank-you-message-customized
 Description: Adds personalized thank-you pages for donors via CPT and shortcodes.
-Version:     1.2
+Version:     1.3
 Author:      Stephen Schrauger
 Author URI:  https://schrauger.com
 Text Domain: donor-thank-you
@@ -38,6 +38,7 @@ require_once __DIR__ . '/includes/token-requests.php';
 require_once __DIR__ . '/includes/pdf.php';
 require_once __DIR__ . '/includes/api.php';
 require_once __DIR__ . '/includes/admin-uploads.php';
+require_once __DIR__ . '/includes/media-library.php';
 
 // create the CPT
 \add_action('init', __NAMESPACE__ . '\\register_cpt', 0);

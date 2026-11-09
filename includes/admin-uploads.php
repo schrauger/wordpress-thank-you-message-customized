@@ -41,8 +41,12 @@ function prepare_certificate_upload(array $file): array {
         return $file;
     }
 
-    $base     = sanitise_filename_base(\str_replace($token, '', \pathinfo($file['name'], \PATHINFO_FILENAME)));
-    $filename = certificate_filename('' !== $base ? $base : DEFAULT_FILENAME_BASE, $token, 1);
+    if (false !== \strpos($file['name'], $token)) {
+        $filename = \sanitize_file_name($file['name']);
+    } else {
+        $base     = sanitise_filename_base(\pathinfo($file['name'], \PATHINFO_FILENAME));
+        $filename = certificate_filename('' !== $base ? $base : DEFAULT_FILENAME_BASE, $token, 1);
+    }
 
     // media_handle_upload() files the upload under the message's own date.
     $upload_time = (int) \substr($message->post_date, 0, 4) > 0 ? $message->post_date : null;

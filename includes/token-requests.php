@@ -22,12 +22,16 @@ function protect_token_request() {
     \nocache_headers();
     \defined('DONOTCACHEPAGE') || \define('DONOTCACHEPAGE', true);
     \header('Referrer-Policy: same-origin');
+    // Sent as well as the meta tag, which a theme change could drop.
+    \header('X-Robots-Tag: noindex, nofollow, noarchive');
 }
 
 \add_filter('wp_robots', __NAMESPACE__ . '\\noindex_token_request');
 function noindex_token_request(array $robots): array {
     if (is_token_request()) {
-        $robots['noindex'] = true;
+        $robots['noindex']   = true;
+        $robots['nofollow']  = true;
+        $robots['noarchive'] = true;
     }
 
     return $robots;

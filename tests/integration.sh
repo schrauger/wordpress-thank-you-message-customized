@@ -295,6 +295,9 @@ t_token_requests() {
 	assert_match "response is not cacheable" "no-store|no-cache" "$(header Cache-Control)"
 	assert_eq "referrer is limited to this site" "same-origin" "$(header Referrer-Policy)"
 	assert_match "page is noindex" "<meta name=.robots. content=.[^>]*noindex" "$BODY"
+	assert_match "page asks not to be archived" "<meta name=.robots. content=.[^>]*noarchive" "$BODY"
+	assert_match "links on the page are not followed" "<meta name=.robots. content=.[^>]*nofollow" "$BODY"
+	assert_eq "robots header covers the page" "noindex, nofollow, noarchive" "$(header X-Robots-Tag)"
 	assert_match "legacy page shows the donor's name" "Itest Legacy single" "$BODY"
 	assert_match "legacy page keeps its certificate link" "<a href=\"${L_URL[single]}\">Digital copy of your adoption certificate</a>" "$BODY"
 
@@ -311,6 +314,7 @@ t_token_requests() {
 
 	http GET "$page"
 	assert_eq "page without a token has no referrer header" "" "$(header Referrer-Policy)"
+	assert_eq "page without a token has no robots header" "" "$(header X-Robots-Tag)"
 
 	assert_eq "token requests opt out of page caching" "yes" "$(wp_php <<'PHP'
 <?php
@@ -705,6 +709,10 @@ PHP
 	upload "$post" "$pdf" "itest-named-$token.pdf"
 	assert_eq "a filename already holding the token is not doubled" "itest-named-$token.pdf" "$(uploaded_name "$att")"
 
+	upload "$post" "$pdf" "itest-mid-$token-extra.pdf"
+	assert_eq "a token anywhere in the filename leaves it as it is" "itest-mid-$token-extra.pdf" "$(uploaded_name "$att")"
+	assert_eq "a filename already holding the token still becomes private" "private 1" "$(att_state "$att")"
+
 	upload "$post" "$pdf" "itest My File.pdf"
 	assert_match "a taken filename is refused" '"success":false' "$BODY"
 
@@ -728,6 +736,33 @@ PHP
 	assert_match "Media Library PDF upload still works" '"success":true' "$BODY"
 	assert_eq "Media Library PDF keeps its name" "itest-library.pdf" "$(uploaded_name "$att")"
 	assert_eq "Media Library PDF is not a certificate" "inherit unflagged" "$(att_state "$att")"
+
+	media_list() { http GET "$WP_URL/wp-admin/upload.php?mode=list&s=$1" -b "$jar"; }
+	media_grid() { http POST "$WP_URL/wp-admin/admin-ajax.php" -b "$jar" -d action=query-attachments -d "query[s]=$1" ${2:+-d "post_id=$2"}; }
+
+	media_list "$token"
+	assert_no_match "Media Library list hides certificates by default" "itest-My-File" "$BODY"
+	local toggle
+	toggle="$(printf '%s' "$BODY" | sed -nE 's/.*href="([^"]*donor_certificates=show[^"]*)".*/\1/p' | sed -E 's/&(amp|#038);/\&/g' | head -n 1)"
+	assert_match "Media Library offers a way to show them" "donor_certificates=show" "$toggle"
+	media_grid "$token"
+	assert_no_match "Media Library grid hides certificates by default" "itest-My-File" "$BODY"
+	media_grid "$token" "$post"
+	assert_match "the donor message's own media picker still shows them" "itest-My-File" "$BODY"
+	media_grid "itest-library"
+	assert_match "ordinary PDFs stay visible" "itest-library" "$BODY"
+
+	http GET "$toggle" -b "$jar" -L
+	assert_eq "show link works" "200" "$STATUS"
+	media_list "$token"
+	assert_match "list shows certificates once chosen" "itest-My-File" "$BODY"
+	assert_match "and offers a way to hide them again" "donor_certificates=hide" "$BODY"
+	media_grid "$token"
+	assert_match "grid shows certificates once chosen" "itest-My-File" "$BODY"
+
+	http GET "$WP_URL/wp-admin/upload.php?donor_certificates=hide" -b "$jar" -L
+	media_list "$token"
+	assert_match "the choice cannot be changed without a valid nonce" "itest-My-File" "$BODY"
 }
 
 t_changed_links() {

@@ -9,7 +9,8 @@ A Donor Link looks like `<thank-you page path>?donorid=<token>`. Tokens and Dono
 - Certificates are private attachments, so they do not appear in the REST media API, attachment pages or other listings for anonymous visitors.
 - The exact PDF URL stays public, because donors open it without logging in. The token in the filename makes it unguessable.
 - Existing Certificates are protected automatically, once, after the plugin is updated. Only their status and meta change; files and URLs do not. `wp option get donor_thank_you_backfill_report` shows the result, and `unresolved` should be `0`.
-- A PDF uploaded from a Donor Message edit screen gets the token added to its filename and becomes a Certificate. A PDF uploaded directly to the Media Library has no Donor Message to belong to, so it is left as an ordinary file.
+- A PDF uploaded from a Donor Message edit screen becomes a Certificate. The token is added to its filename unless the filename already contains it. A PDF uploaded directly to the Media Library has no Donor Message to belong to, so it is left as an ordinary file.
+- Certificates are hidden from the Media Library by default. A notice at the top of the Media Library lets each user show or hide them. They always appear in the media picker on a Donor Message edit screen.
 
 ## API
 
