@@ -22,6 +22,22 @@ function upload_target_message(): ?\WP_Post {
     return ($post && CPT_SLUG === $post->post_type && \current_user_can('edit_post', $post_id)) ? $post : null;
 }
 
+// A theme or plugin can call wp_enqueue_media() before the post exists, leaving
+// the uploader with post ID 0 and uploads with no message context. This corrects
+// it once the post is known, including the draft created when Add New opens.
+\add_action('admin_enqueue_scripts', __NAMESPACE__ . '\\give_media_uploader_its_message');
+function give_media_uploader_its_message() {
+    $screen = \get_current_screen();
+    $post   = \get_post();
+
+    if (!$screen || 'post' !== $screen->base || CPT_SLUG !== $screen->post_type || !$post) {
+        return;
+    }
+
+    $settings = \wp_json_encode(['id' => $post->ID, 'nonce' => \wp_create_nonce('update-post_' . $post->ID)]);
+    \wp_add_inline_script('media-views', 'wp.media.view.settings.post = wp.media.model.settings.post = ' . $settings . ';');
+}
+
 \add_filter('wp_handle_upload_prefilter', __NAMESPACE__ . '\\prepare_certificate_upload');
 function prepare_certificate_upload(array $file): array {
     $message = upload_target_message();
