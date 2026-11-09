@@ -694,6 +694,22 @@ echo basename(get_attached_file((int) $args[0]));
 PHP
 	}
 
+	# The browser only sends the post ID the page gives the media uploader,
+	# so these take the ID from there, as the Add Media button does.
+	media_post_id() { printf '%s' "$BODY" | sed -nE 's/.*media\.model\.settings\.post = \{"id":([0-9]+).*/\1/p' | head -n 1; }
+	assert_eq "edit screen gives the media uploader its message" "$post" "$(media_post_id)"
+
+	local new_post new_token draft
+	http GET "$WP_URL/wp-admin/post-new.php?post_type=donor_message" -b "$jar"
+	draft="$(printf '%s' "$BODY" | sed -nE "s/.*name='post_ID' value='([0-9]+)'.*/\1/p" | head -n 1)"
+	new_post="$(media_post_id)"
+	assert_eq "Add New screen gives the media uploader its message" "$draft" "$new_post"
+	new_token="$(wp_cli post meta get "$draft" _donor_token)"
+	upload "$new_post" "$pdf" "itest-new-message.pdf"
+	assert_eq "Add Media on a new message adds the token" "itest-new-message-$new_token.pdf" "$(uploaded_name "$att")"
+	assert_eq "Add Media on a new message makes it private" "private 1" "$(att_state "$att")"
+	wp_cli post delete "$draft" --force >/dev/null
+
 	upload "$post" "$pdf" "itest My File.pdf"
 	assert_match "PDF upload succeeds" '"success":true' "$BODY"
 	assert_eq "token is added to the filename" "itest-My-File-$token.pdf" "$(uploaded_name "$att")"
