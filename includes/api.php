@@ -41,14 +41,14 @@ function page_url(string $token): string {
 }
 
 function message_response(int $post_id, bool $created, int $status): \WP_REST_Response {
-    $attachment_id = (int) \get_post_meta($post_id, META_PDF_ATTACHMENT, true);
-    $token         = (string) \get_post_meta($post_id, META_TOKEN, true);
+    $token   = (string) \get_post_meta($post_id, META_TOKEN, true);
+    $current = current_certificate(\get_post($post_id));
 
     return new \WP_REST_Response([
         'id'       => $post_id,
         'token'    => $token,
         'page_url' => page_url($token),
-        'pdf_url'  => $attachment_id ? \wp_get_attachment_url($attachment_id) : null,
+        'pdf_url'  => \is_wp_error($current) ? null : certificate_url($current),
         'created'  => $created,
     ], $status);
 }
@@ -144,6 +144,7 @@ function find_message_by_meta(string $key, string $value, array $statuses): int 
         'order'            => 'ASC',
         'meta_key'         => $key,
         'meta_value'       => $value,
+        'meta_type'        => 'BINARY', // The column's collation ignores case.
         'suppress_filters' => true,
     ]);
 
@@ -166,19 +167,26 @@ function api_get_message(\WP_REST_Request $request) {
     return \is_wp_error($post) ? $post : message_response($post->ID, false, 200);
 }
 
-/**
- * The link(s) a content update must keep: the tracked Certificate's link, or
- * for an untracked legacy post every PDF link it has.
- */
-function links_to_preserve(\WP_Post $post): array {
-    $links         = find_pdf_links($post->post_content);
-    $attachment_id = (int) \get_post_meta($post->ID, META_PDF_ATTACHMENT, true);
-
-    if ($attachment_id) {
-        $links = \array_filter($links, static fn($link) => \attachment_url_to_postid($link['href']) === $attachment_id);
+/** The link pointing at the tracked Certificate, if it is still in the body. */
+function find_tracked_link(array $links, int $attachment_id): ?array {
+    foreach ($links as $link) {
+        if ($attachment_id && \attachment_url_to_postid($link['href']) === $attachment_id) {
+            return $link;
+        }
     }
 
-    return \array_column($links, 'html');
+    return null;
+}
+
+/**
+ * The link(s) a content update must keep: the tracked Certificate's link or,
+ * when that is absent because the body was edited, every PDF link there is.
+ */
+function links_to_preserve(\WP_Post $post): array {
+    $links   = find_pdf_links($post->post_content);
+    $tracked = find_tracked_link($links, (int) \get_post_meta($post->ID, META_PDF_ATTACHMENT, true));
+
+    return \array_column($tracked ? [$tracked] : $links, 'html');
 }
 
 function api_update_message(\WP_REST_Request $request) {
@@ -226,15 +234,10 @@ function api_reissue_certificate(\WP_REST_Request $request) {
 function current_certificate(\WP_Post $post) {
     $links         = find_pdf_links($post->post_content);
     $attachment_id = (int) \get_post_meta($post->ID, META_PDF_ATTACHMENT, true);
+    $tracked       = find_tracked_link($links, $attachment_id);
 
-    if ($attachment_id) {
-        foreach ($links as $link) {
-            if (\attachment_url_to_postid($link['href']) === $attachment_id) {
-                return ['link' => $link, 'attachment_id' => $attachment_id];
-            }
-        }
-
-        return ['link' => null, 'attachment_id' => $attachment_id];
+    if ($tracked) {
+        return ['link' => $tracked, 'attachment_id' => $attachment_id];
     }
 
     if (\count($links) > 1) {
@@ -243,8 +246,16 @@ function current_certificate(\WP_Post $post) {
 
     return [
         'link'          => $links[0] ?? null,
-        'attachment_id' => $links ? \attachment_url_to_postid($links[0]['href']) : 0,
+        'attachment_id' => $links ? \attachment_url_to_postid($links[0]['href']) : $attachment_id,
     ];
+}
+
+function certificate_url(array $current): ?string {
+    if ($current['link']) {
+        return $current['link']['href'];
+    }
+
+    return $current['attachment_id'] ? (string) \wp_get_attachment_url($current['attachment_id']) : null;
 }
 
 /** Works out the base name from the existing file, minus token and revision. */

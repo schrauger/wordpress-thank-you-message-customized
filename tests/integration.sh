@@ -8,7 +8,7 @@
 #   tests/integration.sh [slice ...]
 #
 # Slices default to all of them. Output carries counts and synthetic values
-# only, so it is safe to run on a copy holding real donor records.
+# only, so it is safe to run on a copy holding real Donor Messages.
 
 set -u
 
@@ -503,6 +503,13 @@ echo (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$wpdb->postmeta}
 PHP
 )"
 
+	local first_token
+	create_message "Itest Case A" "itest:case-$$"
+	first_token="$(json_field token)"
+	create_message "Itest Case B" "itest:CASE-$$"
+	assert_eq "External References differing only in case are distinct" "201" "$STATUS"
+	assert_ne "a differently cased reference gets its own token" "$first_token" "$(json_field token)"
+
 	wp_cli post delete "$id" >/dev/null
 	http POST "$API/messages" -u "$SERVICE_AUTH" -F "name=Itest Again" -F "external_ref=$ref"
 	assert_eq "a trashed message still answers a retry" "200" "$STATUS"
@@ -710,10 +717,45 @@ PHP
 	assert_no_match "image keeps its own name" "$token" "$(uploaded_name "$att")"
 	assert_eq "image is not treated as a certificate" "inherit unflagged" "$(att_state "$att")"
 
+	local dated
+	dated="$(wp_cli post create --post_type=donor_message --post_status=publish --post_title='Itest Dated' --post_date='2020-03-15 12:00:00' --porcelain)"
+	upload "$dated" "$pdf" "itest-dated.pdf"
+	assert_match "upload to an older message succeeds" '"success":true' "$BODY"
+	upload "$dated" "$pdf" "itest-dated.pdf"
+	assert_match "a taken filename in an older message's folder is refused" '"success":false' "$BODY"
+
 	upload "" "$pdf" "itest-library.pdf"
 	assert_match "Media Library PDF upload still works" '"success":true' "$BODY"
 	assert_eq "Media Library PDF keeps its name" "itest-library.pdf" "$(uploaded_name "$att")"
 	assert_eq "Media Library PDF is not a certificate" "inherit unflagged" "$(att_state "$att")"
+}
+
+t_changed_links() {
+	echo "links changed outside the API"
+	api_users
+	load_legacy_fixtures
+	rerun_upgrade
+	local id="${L_POST[single]}" token="${L_TOKEN[single]}" linked="${L_URL[blank]}" body new
+	wp_cli post update "$id" --post_content="<a href=\"$linked\">Digital copy of your adoption certificate</a>" >/dev/null
+
+	http GET "$API/messages/$token" -u "$SERVICE_AUTH"
+	assert_eq "fetch reports the link actually on the page" "$linked" "$(json_field pdf_url)"
+
+	http PATCH "$API/messages/$token" -u "$SERVICE_AUTH" -H 'Content-Type: application/json' -d '{"content":"<p>Note</p>"}'
+	assert_match "PATCH keeps a link that replaced the tracked one" "$linked" "$(post_content "$id")"
+
+	http POST "$API/messages/$token/pdf" -u "$SERVICE_AUTH" -F "pdf=@$FIXTURE_PDF" -F "filename_base=itest-Repointed"
+	assert_eq "reissue succeeds on a changed link" "200" "$STATUS"
+	new="$(json_field pdf_url)"
+	body="$(post_content "$id")"
+	assert_eq "reissue swaps rather than appends" "1" "$(printf '%s' "$body" | grep -o '<a ' | wc -l | tr -d ' ')"
+	assert_match "reissue links the new certificate" "$new" "$body"
+	assert_no_match "reissue removes the replaced link" "$linked" "$body"
+
+	local untracked
+	untracked="$(wp_cli post create --post_type=donor_message --post_status=publish --post_title='Itest Untracked' --post_content="<a href=\"${L_URL[double]}\">Digital copy of your adoption certificate</a>" --porcelain)"
+	http GET "$API/messages/$(wp_cli post meta get "$untracked" _donor_token)" -u "$SERVICE_AUTH"
+	assert_eq "a message with one untracked link reports it" "${L_URL[double]}" "$(json_field pdf_url)"
 }
 
 # ---- main ------------------------------------------------------------------
@@ -722,7 +764,7 @@ guard_local_site
 trap cleanup EXIT
 sweep
 
-ALL_SLICES="backfill anonymous_exposure token_requests api_auth api_create pdf_rejection idempotency read_update reissue admin_uploads"
+ALL_SLICES="backfill anonymous_exposure token_requests api_auth api_create pdf_rejection idempotency read_update reissue changed_links admin_uploads"
 for slice in ${*:-$ALL_SLICES}; do
 	"t_$slice"
 	sweep

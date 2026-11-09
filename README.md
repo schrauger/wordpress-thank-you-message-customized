@@ -96,7 +96,7 @@ curl -u 'donor-api:APPLICATION_PASSWORD' \
   https://example.org/wp-json/donor-thank-you/v1/messages/TOKEN/pdf
 ```
 
-The new file is named `<base>-<token>-r2.pdf`, then `-r3`, so browsers cannot serve a cached copy. Send `filename_base` to change the base; otherwise it comes from the current file. The token and Donor Link do not change. The earlier Certificate is kept, unlinked, and still opens at its old URL.
+The new Certificate is named `<base>-<token>-r2.pdf`, then `-r3`, so browsers cannot serve a cached copy. Send `filename_base` to change the base; otherwise it comes from the current Certificate. The token and Donor Link do not change. The earlier Certificate is kept, unlinked, and still opens at its old URL.
 
 ### PDF rules
 

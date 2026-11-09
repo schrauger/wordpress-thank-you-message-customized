@@ -44,7 +44,10 @@ function prepare_certificate_upload(array $file): array {
     $base     = sanitise_filename_base(\str_replace($token, '', \pathinfo($file['name'], \PATHINFO_FILENAME)));
     $filename = certificate_filename('' !== $base ? $base : DEFAULT_FILENAME_BASE, $token, 1);
 
-    if (\file_exists(\wp_upload_dir()['path'] . '/' . $filename)) {
+    // media_handle_upload() files the upload under the message's own date.
+    $upload_time = (int) \substr($message->post_date, 0, 4) > 0 ? $message->post_date : null;
+
+    if (\file_exists(\wp_upload_dir($upload_time)['path'] . '/' . $filename)) {
         $file['error'] = filename_taken()->get_error_message();
         return $file;
     }
