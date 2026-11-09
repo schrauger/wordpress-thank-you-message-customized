@@ -3,7 +3,7 @@
 Plugin Name: Donor Thank You Message
 Plugin URI:  https://github.com/schrauger/wordpress-thank-you-message-customized
 Description: Adds personalized thank-you pages for donors via CPT and shortcodes.
-Version:     1.2
+Version:     1.3
 Author:      Stephen Schrauger
 Author URI:  https://schrauger.com
 Text Domain: donor-thank-you
@@ -19,6 +19,26 @@ namespace Schrauger\DonorThankYou;
 const CPT_SLUG        = 'donor_message';
 const SHORTCODE_SLUG  = 'donor_message';
 const BLOCK_NAMESPACE = 'donor-thank-you';
+
+const META_TOKEN          = '_donor_token';
+const META_CERTIFICATE    = '_donor_certificate';
+const META_PDF_ATTACHMENT = '_donor_pdf_attachment_id';
+const META_PDF_REVISION   = '_donor_pdf_revision';
+const META_EXTERNAL_REF   = '_donor_external_ref';
+
+const OPTION_SCHEMA_VERSION  = 'donor_thank_you_schema_version';
+const OPTION_BACKFILL_REPORT = 'donor_thank_you_backfill_report';
+const SCHEMA_VERSION         = '2';
+
+const SERVICE_ROLE   = 'donor_api_service';
+const API_CAPABILITY = 'manage_donor_messages_api';
+
+require_once __DIR__ . '/includes/certificates.php';
+require_once __DIR__ . '/includes/token-requests.php';
+require_once __DIR__ . '/includes/pdf.php';
+require_once __DIR__ . '/includes/api.php';
+require_once __DIR__ . '/includes/admin-uploads.php';
+require_once __DIR__ . '/includes/media-library.php';
 
 // create the CPT
 \add_action('init', __NAMESPACE__ . '\\register_cpt', 0);
